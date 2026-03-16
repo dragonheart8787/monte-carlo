@@ -1,0 +1,6 @@
+# 蒙地卡羅通訊效能評估系統 - 依賴套件
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+pandas>=2.0.0
+pytest>=7.0.0

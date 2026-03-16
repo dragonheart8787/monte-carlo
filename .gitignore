@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test / cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Output
+experiments/
+benchmark_results/
+packet_stress_results/
+report_figures/
+
+# Images (generated) - keep docs/images for README
+*.png
+!docs/images/*.png
+
+# Generated files
+*.log
+packet_stress_results.json
