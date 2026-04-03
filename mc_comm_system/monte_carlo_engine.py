@@ -15,8 +15,10 @@ from .config import SimulationConfig
 from .data_generator import DataGenerator
 from .modulation import Modulator
 from .channel import Channel
-from .receiver import Receiver
+from .receiver import Receiver, FadingEqualizer
 from .performance import PerformanceEvaluator
+
+_FADING_CHANNELS = {"RAYLEIGH", "RICIAN"}
 
 
 class MonteCarloEngine:
@@ -28,10 +30,14 @@ class MonteCarloEngine:
         self.data_gen = DataGenerator(config.random_seed)
         self.modulator = Modulator(config.modulation)
         self.channel = Channel.from_config(config)
+        # 衰落通道自動使用 FadingEqualizer (zero-forcing coherent equalization)
+        use_equalizer = config.channel.upper() in _FADING_CHANNELS
         self.receiver = Receiver(
             config.modulation,
             config.decision_type,
+            compensator=FadingEqualizer() if use_equalizer else None,
         )
+        self._use_fading_csi = use_equalizer
         self.perf = PerformanceEvaluator(config.confidence_level)
 
     def _run_single_trial(
@@ -45,8 +51,14 @@ class MonteCarloEngine:
             num_bits, packet_length
         )
         symbols = self.modulator.modulate(bits)
-        received = self.channel.transmit(symbols, snr_db)
-        rx_bits = self.receiver.detect(received)
+
+        # Fading 通道：傳遞 channel_state (h) 給接收器做等化
+        if self._use_fading_csi:
+            received, channel_state = self.channel.transmit(symbols, snr_db, return_channel_state=True)
+            rx_bits = self.receiver.detect(received, channel_state)
+        else:
+            received = self.channel.transmit(symbols, snr_db)
+            rx_bits = self.receiver.detect(received)
 
         result = {"ber": self.perf.compute_ber(bits, rx_bits)}
 

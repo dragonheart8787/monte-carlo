@@ -189,6 +189,35 @@ class NoCompensation(ChannelCompensator):
         return received
 
 
+class FadingEqualizer(ChannelCompensator):
+    """
+    MRC (Maximum Ratio Combining) equalizer for fading channels.
+    Applies: r_mrc = conj(h) * received
+
+    For BPSK/QPSK with MinimumDistanceDetector, detection reduces to
+    sign(Re(r_mrc)), which correctly averages to the Rayleigh BER formula.
+    ZF (dividing by |h|²) is avoided due to noise amplification in deep fades.
+    Falls back to NoCompensation if h not available.
+    """
+    def compensate(
+        self,
+        received: np.ndarray,
+        channel_state=None,
+    ) -> np.ndarray:
+        h = None
+        if channel_state is not None:
+            if hasattr(channel_state, "fading_coefficients"):
+                h = channel_state.fading_coefficients
+            elif isinstance(channel_state, dict):
+                h = channel_state.get("fading_coefficients")
+
+        if h is None:
+            return received
+
+        h_arr = np.asarray(h, dtype=complex)
+        return received * np.conj(h_arr)
+
+
 # ---------------------------------------------------------------------------
 # Receiver 編排
 # ---------------------------------------------------------------------------

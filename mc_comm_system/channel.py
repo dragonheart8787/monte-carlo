@@ -83,9 +83,11 @@ class Channel:
         burst_ratio: float,
         seed: Optional[int],
     ) -> AdditiveNoiseProcess:
+        # 偏移 seed，確保 noise 與 fading 的 RNG 獨立
+        noise_seed = (seed + 1000003) if seed is not None else None
         if burst_prob > 0:
-            return BurstAWGNNoise(burst_prob, burst_ratio, seed)
-        return AWGNNoise(seed)
+            return BurstAWGNNoise(burst_prob, burst_ratio, noise_seed)
+        return AWGNNoise(noise_seed)
 
     def _build_impairment(
         self,
@@ -114,10 +116,18 @@ class Channel:
             burst_noise_ratio=config.burst_noise_ratio,
         )
 
-    def transmit(self, symbols: np.ndarray, snr_db: float) -> np.ndarray:
+    def transmit(
+        self,
+        symbols: np.ndarray,
+        snr_db: float,
+        return_channel_state: bool = False,
+    ):
         """
-        傳輸流程：fading -> impairment -> add noise
+        傳輸流程：fading -> impairment -> add noise。
+        return_channel_state=True 時同時回傳 ChannelState（含 fading coefficients h）。
         """
+        from .channel_state import ChannelState
+
         n = len(symbols)
         sig_power = np.mean(np.abs(symbols) ** 2)
         symbols_norm = symbols / np.sqrt(sig_power) if sig_power > 0 else symbols
@@ -131,5 +141,13 @@ class Channel:
 
         # 3. Additive noise
         noise = self._noise.generate(n, snr_db)
+        received = impaired + noise
 
-        return impaired + noise
+        if not return_channel_state:
+            return received
+
+        state = ChannelState(
+            fading_coefficients=h.tolist(),
+            perfect_csi_available=True,
+        )
+        return received, state
